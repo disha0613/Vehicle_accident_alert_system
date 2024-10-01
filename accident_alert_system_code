@@ -1,0 +1,113 @@
+/*
+  Vehicle Accident Alert System
+  Author: Sai Disha J
+  Version: 1.0.0
+  Description: This program monitors temperature, humidity, alcohol levels, and acceleration.
+               It sends alerts when certain thresholds are exceeded and notifies emergency contacts in case of an accident.
+*/
+
+// Include necessary libraries
+#include <Wire.h>             // For I2C communication
+#include <DHT.h>              // For DHT sensor
+#include <MPU6050_tockn.h>    // For MPU6050 accelerometer
+#include <TinyGPS++.h>        // For GPS functionality
+
+// Pin Definitions
+#define DHTPIN 18                // DHT Sensor Pin
+#define DHTTYPE DHT11            // DHT Sensor Type
+#define LED_PIN 2                // LED Indicator Pin
+#define MPU6050_SDA 21           // MPU6050 SDA Pin
+#define MPU6050_SCL 22           // MPU6050 SCL Pin
+#define ALCOHOL_SENSOR_PIN A0    // Alcohol Sensor Pin
+
+// Initialize sensor objects
+DHT dht(DHTPIN, DHTTYPE);            // DHT sensor object
+MPU6050 mpu6050(Wire);               // MPU6050 object
+TinyGPSPlus gps;                     // GPS object
+
+void setup() {
+  Serial.begin(115200);               // Start serial communication
+  Wire.begin(MPU6050_SDA, MPU6050_SCL); // Initialize I2C for MPU6050
+  dht.begin();                        // Start DHT sensor
+  pinMode(LED_PIN, OUTPUT);          // Set LED pin as output
+}
+
+void loop() {
+  float temperature = dht.readTemperature(); // Read temperature
+  float humidity = dht.readHumidity();       // Read humidity
+  float alcoholLevel = getAlcoholLevel();     // Read alcohol level
+  float acceleration = getAcceleration();      // Read acceleration
+
+  // Check for high temperature or humidity
+  if (temperature > 30 || humidity > 70) {
+    sendAlert("High temperature or humidity detected!");
+  }
+
+  // Check for alcohol detection
+  if (alcoholLevel > 0.5) {
+    sendAlert("Alcohol detected!");
+  }
+
+  // Check for excessive acceleration
+  if (acceleration > 10) {
+    sendAlert("Excessive acceleration detected!");
+    sendAccidentAlert(); // Send accident alert
+  }
+
+  delay(1000); // Wait for 1 second before the next loop iteration
+}
+
+/**
+ * @brief Reads the alcohol level from the sensor.
+ * @return float Alcohol level measured by the sensor.
+ */
+float getAlcoholLevel() {
+  int alcoholValue = analogRead(ALCOHOL_SENSOR_PIN); // Read alcohol sensor
+  float alcoholLevel = alcoholValue * 5.0 / 1023.0;  // Convert reading to voltage
+  return alcoholLevel;  // Return alcohol level
+}
+
+/**
+ * @brief Reads acceleration values from the MPU6050.
+ * @return float Total acceleration calculated from X, Y, Z axes.
+ */
+float getAcceleration() {
+  mpu6050.update(); // Update MPU6050 readings
+  float accelerationX = mpu6050.getAccX(); // Get X-axis acceleration
+  float accelerationY = mpu6050.getAccY(); // Get Y-axis acceleration
+  float accelerationZ = mpu6050.getAccZ(); // Get Z-axis acceleration
+  float acceleration = sqrt(pow(accelerationX, 2) + pow(accelerationY, 2) + pow(accelerationZ, 2)); // Calculate total acceleration
+  return acceleration; // Return total acceleration
+}
+
+/**
+ * @brief Sends alert notifications by blinking an LED and printing a message to Serial.
+ * @param message The alert message to be sent.
+ */
+void sendAlert(String message) {
+  digitalWrite(LED_PIN, HIGH); // Turn on LED
+  delay(1000); // Keep LED on for 1 second
+  digitalWrite(LED_PIN, LOW); // Turn off LED
+  delay(1000); // Wait for 1 second before next blink
+  Serial.println(message); // Print alert message to Serial
+}
+
+/**
+ * @brief Sends an accident alert message to emergency contacts via SMS.
+ */
+void sendAccidentAlert() {
+  Serial.println("Accident detected! Sending emergency alert...");
+
+  // Replace with your GSM module's AT command instructions
+  Serial.println("AT"); // Send AT command to initialize communication
+  delay(500);
+  Serial.println("AT+CMGF=1"); // Set SMS mode to text
+  delay(500);
+  Serial.print("AT+CMGS=\"9019457539\"\r"); // Replace with emergency contact number
+  delay(500);
+  Serial.print("Accident detected! Please check the location."); // SMS message content
+  Serial.write(26); // Ctrl+Z to send the SMS
+  delay(500);
+}
+
+// TODO: Implement GPS location tracking and integrate with SMS alerts
